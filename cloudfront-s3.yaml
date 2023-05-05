@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: AWS CloudFormation template to create S3 bucket and CloudFront Distribution, once this stack is deployed upload an index.html file to s3 bucket.
+Description: AWS CloudFormation template to create S3 bucket and CloudFront Distribution in Mumbai Region(ap-south-1), once this stack is deployed upload an index.html file to s3 bucket.
 
 Parameters:
   s3BucketName:
