@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'AWS CloudFormation template to create RDS subnet group and RDS instance. Dependency-Network.yaml'
+Description: 'AWS CloudFormation template to create RDS subnet group and RDS instance. Dependency-Network.yaml, EC2-ALB.yaml or EC2-ALB-ASG.yaml'
 
 Resources:
   MySubnetGroup:
