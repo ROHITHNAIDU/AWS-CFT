@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'AWS CloudFormation template to create an EC2 instance in private subnet and install httpd, key pair and security group. Dependency-Network.yaml'
+Parameters:
+  ProjectName:
+    Description: Name of the Project
+    Type: String    
+  Environment:
+    Description: Environment like dev, test, prod
+    Type: String 
+  InstanceType:
+    Type: String
+    Description: EC2 instance type like t2.micro, m5.large etc..
+  AMI:
+    Type: String
+    Description: EC2 image ID for the instance
+  EBSVolumeSize:
+    Type: String
+    Description: Size of the EBS volume in GB
+  EBSVolumeType:
+    Type: String
+    Description: Type of the EBS volume (gp2/gp3/io1/sc1/st1)
+
+Resources:
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-", [ !Ref ProjectName, "app-server-SG" ] ]
+      GroupDescription: "security group for EC2 instance"
+      VpcId: !ImportValue VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Join [ "-", [ !Ref ProjectName, "app-server-keypair" ] ]
+
+
+  MyInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AMI
+      KeyName: !Ref EC2KeyPair
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ !Ref ProjectName, "app-server" ] ]
+        - Key: Environment
+          Value: !Ref Environment
+      UserData:
+        Fn::Base64: 
+          !Sub |    
+            #!/bin/bash
+            yum update -y
+            yum install -y httpd.x86_64
+            systemctl start httpd.service
+            systemctl enable httpd.service
+            echo "Hello World from $(hostname -f)" > /var/www/html/index.html          
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: false
+          DeviceIndex: '0'
+          SubnetId: !ImportValue PrivateSubnet2Id
+          GroupSet:
+            - !Ref MySecurityGroup
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: !Ref EBSVolumeSize
+            VolumeType: !Ref EBSVolumeType
+            DeleteOnTermination: "true"          
+
+
+
+
