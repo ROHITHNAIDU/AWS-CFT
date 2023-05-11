@@ -1,0 +1,178 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 'AWS CloudFormation template to create EC2 instance in private subnet and install httpd, key pair, ALB, Target group, 
+security groups for ALB and EC2 instance. Launch template, Autoscaling Group. Dependency-Network.yaml (The key pair created will be found in SSM Parameter store)'
+Parameters:
+  ProjectName:
+    Description: Name of the Project
+    Type: String    
+  Environment:
+    Description: Environment like dev, test, prod
+    Type: String 
+  InstanceType:
+    Type: String
+    Description: EC2 instance type like t2.micro, m5.large etc..
+  AMI:
+    Type: String
+    Description: EC2 image ID for the instance
+
+
+Resources:
+#IAM role for EC2 which has SSM permission, so using SSM session manager or fleet manager we can ssh to our instance without using keypair.
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: SSMManagedInstanceCoreRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: SSMManagedInstanceProfile
+      Path: "/"
+      Roles:
+        - !Ref EC2Role
+
+#Security group for ALB
+  MyALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-", [ !Ref ProjectName, "alb-SG" ] ]
+      GroupDescription: "security group for ALB"
+      VpcId: !ImportValue VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+#Security group for EC2 instance
+  MyInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-", [ !Ref ProjectName, "app-server-SG" ] ]
+      GroupDescription: "security group for EC2 instance"
+      VpcId: !ImportValue VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.0.0.0/16
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !GetAtt MyALBSecurityGroup.GroupId
+
+#EC2 Key pair
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Join [ "-", [ !Ref ProjectName, "app-server-keypair" ] ]
+
+  # Target group for the EC2 instances
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: my-target-group
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      # Targets:
+      # - Id: !Ref MyInstance
+      #   Port: 80
+      VpcId: !ImportValue VPCId
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      Matcher:
+        HttpCode: 200
+
+  # Load balancer
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: my-load-balancer
+      Scheme: internet-facing
+      Subnets:
+        - !ImportValue PublicSubnet1Id
+        - !ImportValue PublicSubnet2Id
+      SecurityGroups: 
+        - !Ref MyALBSecurityGroup
+
+  # Load balancer listener
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP      
+
+  MyLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn: MyInstanceSecurityGroup
+    Properties:
+      LaunchTemplateName: !Sub ${ProjectName}-LaunchTemplate
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt
+            - EC2InstanceProfile
+            - Arn      
+        ImageId: !Ref AMI
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref EC2KeyPair
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: false
+            Groups:
+              - !Ref MyInstanceSecurityGroup
+        UserData: 
+          Fn::Base64: 
+            !Sub |
+              #!/bin/bash
+              yum update -y
+              yum install -y httpd.x86_64
+              systemctl start httpd.service
+              systemctl enable httpd.service
+              echo "Hello World from $(hostname -f)" > /var/www/html/index.html  
+
+  MyAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn: MyLaunchTemplate
+    Properties:
+      AutoScalingGroupName: !Sub ${ProjectName}-AutoScalingGroup
+      DesiredCapacity: 2
+      MinSize: 2
+      MaxSize: 3
+      LaunchTemplate: 
+        LaunchTemplateId: !Ref MyLaunchTemplate
+        Version: !GetAtt MyLaunchTemplate.LatestVersionNumber
+      TargetGroupARNs: 
+        - !Ref TargetGroup
+      VPCZoneIdentifier:
+        - !ImportValue PrivateSubnet1Id
+        - !ImportValue PrivateSubnet2Id
+
+Outputs:
+  AlbDNSName:
+    Description: DNS name of the Application Load Balancer
+    Value: !Join [ "", [ "http://", !GetAtt LoadBalancer.DNSName ] ]
+
+  MyInstanceSecurityGroupId:
+    Value: !Ref MyInstanceSecurityGroup
+    Export:
+      Name: MyInstanceSecurityGroupId  
