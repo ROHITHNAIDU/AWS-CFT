@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation template to create RDS subnet group and RDS instance. Dependency-Network.yaml'
+
+Resources:
+  MySubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: my-db-subnet-group
+      SubnetIds:
+        - !ImportValue PrivateSubnet1Id
+        - !ImportValue PrivateSubnet2Id
+      
+  MyDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: mydatabase
+      Engine: mysql
+      EngineVersion: 8.0.32
+      DBInstanceClass: db.t3.micro
+      MasterUsername: myuser
+      MasterUserPassword: mypassword
+      AllocatedStorage: 20
+      BackupRetentionPeriod: 0
+      DBSubnetGroupName: !Ref MySubnetGroup
+      VPCSecurityGroups:
+        - !Ref MyDBSecurityGroup
+
+  MyDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow access to the database from the VPC
+      VpcId: !ImportValue VPCId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !ImportValue MyInstanceSecurityGroupId
