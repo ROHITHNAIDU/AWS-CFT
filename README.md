@@ -1,8 +1,8 @@
 # AWS CloudFormation Scripts
-S3
-CloudFront
-VPC
-EC2
-ALB
-RDS
+1. S3
+2. CloudFront
+3. VPC
+4. EC2
+5. ALB
+6. RDS
 
