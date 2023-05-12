@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: 'AWS CloudFormation template to create EC2 instance in private subnet and install httpd, key pair, ALB, Target group, 
-security groups for ALB and EC2 instance. Launch template, Autoscaling Group. Dependency-Network.yaml (The key pair created will be found in SSM Parameter store)'
+security groups for ALB and EC2 instance. Launch template, Auto Scaling Group. Dependency-Network.yaml (The key pair created will be found in SSM Parameter store)'
 Parameters:
   ProjectName:
     Description: Name of the Project
