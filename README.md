@@ -10,5 +10,6 @@
 6. Launch Template, Auto Scaling Groups
 7. RDS
 8. ECS - Elastic Container Service with Fargate, ALB
-9. CloudTrail, S3
+9. ECS-CI/CD : https://github.com/ROHITHNAIDU/AWS-ECS-CICD
+10. CloudTrail, S3
 
