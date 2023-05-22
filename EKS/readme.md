@@ -7,7 +7,10 @@ refer this link: https://docs.aws.amazon.com/eks/latest/userguide/getting-starte
 5. then execute these commands  
 kubectl get svc  
 kubectl get nodes  
-6. To create a deployment execute nginx-deployment.yaml. To create a service execute nginx-service.yaml  
+6. To create a deployment execute nginx-deployment.yaml and to create a service execute nginx-service.yaml  
+commands:  
+kubectl apply -f nginx-deployment.yaml  
+kubectl apply -f nginx-service.yaml  
 7. To see the deployment, pods and service, execute these commands  
 kubectl get svc  
 kubectl get deployment  
