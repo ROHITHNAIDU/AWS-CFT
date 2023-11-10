@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: AWS CloudFormation template to create CloudTrail and S3 bucket.
+Description: AWS CloudFormation template to create EKS Cluster and Node Group.
 Parameters:
   EKSClusterName:
     Description: Name of the EKS Cluster
